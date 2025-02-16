@@ -37,13 +37,25 @@ def delete_product(product_id):
         return jsonify({"message":"Product deleted successfully"})
     return jsonify({"message":"Product not found"}), 404
 
-
-
+@app.route('/api/products/<int:product_id>', methods=["GET"])
+def get_product_details(product_id):
+    product=Product.query.get(product_id)
+    if product:
+        return jsonify({
+            "id" :product.id,
+            "name" :product.name,
+            "price" :product.price,
+            "description" :product.description
+        })
+    return jsonify({"message":"Product not found"}), 400
 
 #Definir uma rota raiz (página inicial) e a função que será executada ao requisitar 
-@app.route('/')
-def hello_wolrd():
-    return "Hello wolrd!!"
+
+
+
+# @app.route('/')
+# def hello_wolrd():
+#     return "Hello wolrd!!"
 
 if __name__=="__main__":
     app.run(debug=True)
