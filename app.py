@@ -1,13 +1,26 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
-
+from flask_cors import CORS
+from flask_login import UserMixin, login_user, LoginManager, login_required, logout_user
 
 app=Flask(__name__)
+app.config['SECRET_KEY']='minha_chave'
 app.config['SQLALCHEMY_DATABASE_URI']='sqlite:///ecommerce.db'
 
 # Modelagem
+# Banco de dados
 db = SQLAlchemy(app)
+# Autenticação de usuario.
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view='login'
+# Configuração para utilizar o swagger, para permitir que outros sistemas de fora possam acessar esse sistema.
+CORS(app)
 
+class User(db.Model, UserMixin):
+    id = db.Column(db.Integer, primary_key=True)
+    user = db.Column(db.String(80), nullable=False, unique=True)
+    password = db.Column(db.String(80), nullable=False)
 
 
 class Product(db.Model):
@@ -16,8 +29,31 @@ class Product(db.Model):
     price = db.Column(db.Float, nullable=False)
     description = db.Column(db.Text, nullable=True)
 
+# Rota de autenticação configurado para o login_required, essa sunção carrega o usuario autenticado pora o @login_required
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+# Login do usuario
+@app.route('/login', methods=["POST"])
+def login():
+    data=request.json
+    
+    user=User.query.filter_by(user=data.get("user")).first()
+    
+    if user and data.get("password") == user.password:
+            login_user(user)
+            return jsonify({"message":"Logged in successfully"})    
+    
+    return jsonify({"message":"Unauthorized. Invalid credentials"}), 401
+
+@app.route('/logout', methods=["POST"])    
+def logout():
+    logout_user()
+    return jsonify({"message":"Logout successfully"})
 # Adicionando porduto
 @app.route('/api/products/add', methods=["POST"])
+@login_required
 def add_products():
     data = request.json
     if 'name' in data and 'price' in data:
@@ -29,6 +65,7 @@ def add_products():
 
 #Deletando produro
 @app.route('/api/products/delete/<int:product_id>', methods=["DELETE"])
+@login_required
 def delete_product(product_id):
     #Recuperar o produto da base de dados
     # Verificar se o porduto existe
@@ -56,6 +93,7 @@ def get_product_details(product_id):
 
 # Atualiza produto
 @app.route('/api/products/update/<int:product_id>', methods=["PUT"])
+@login_required
 def upade_product(product_id):
 
     product= Product.query.get(product_id)
@@ -79,7 +117,7 @@ def upade_product(product_id):
 
 
 
-#Definir uma rota raiz (página inicial) e a função que será executada ao requisitar 
+# Apresentar todos os produtos
 @app.route('/api/products', methods=["GET"])
 def get_products():
     products=Product.query.all()
